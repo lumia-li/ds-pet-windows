@@ -5,11 +5,8 @@
 
 它也能跟着 AI 干活的进度说话——开始处理、这一轮完成、出错、需要你确认，都会用气泡告诉你。
 
-![ds-pet](assets/screenshots/dsh-pet-running-1.png)
-
 <p align="center">
-  <img src="assets/screenshots/dsh-pet-running-2.png" width="45%">
-  <img src="assets/screenshots/dsh-pet-running-3.png" width="45%">
+  <img src="assets/screenshots/preview-1.png" alt="ds-pet 在桌面上吃东西" width="100%">
 </p>
 
 > 本仓库是 **Windows 安装包** 的分发仓库。
@@ -53,6 +50,10 @@ ds-pet-setup-x.y.z.exe
 - 可选开机自启、系统托盘常驻。
 
 设置窗口里每一项都有说明，改完点「保存并应用」即生效。
+
+<p align="center">
+  <img src="assets/screenshots/preview-2.png" alt="ds-pet 在桌面上哼歌" width="90%">
+</p>
 
 ## 卸载
 
