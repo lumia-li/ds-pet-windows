@@ -70,7 +70,7 @@ ds-pet-setup-x.y.z.exe
 | **Windows 安装包** | **liyue** 打包制作 |
 
 宠物的一切创意、动画素材与代码均来自原作者 **PC2005-cloud** 的开源项目 **dsh-pet**。
-本仓库只把它打包成 Windows 下可以直接双击安装的形式，**不修改原项目源码，不对原项目主张任何权利**。
+本仓库只把它打包成 Windows 下可以直接双击安装的形式，不对原项目主张任何权利。
 
 如果这个宠物让你开心，请去原仓库点一个 Star：
 **https://github.com/PC2005-cloud/dsh-pet**
