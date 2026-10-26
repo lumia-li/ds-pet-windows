@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<!-- CSP：脚本/样式/图标只允许本地文件（组件库在 vendor/shoelace，离线运行）。
+     'unsafe-inline' 只给 style —— Shoelace 的组件在 Shadow DOM 内注入样式表，无法用 hash 白名单。 -->
+<!-- CSP：脚本/样式/图标只允许本地文件（组件库在 vendor/shoelace，离线运行）。
+     · style 的 'unsafe-inline'：Shoelace 在 Shadow DOM 内注入样式表，无法用 hash 白名单；
+     · connect 的 data:：Shoelace 内置图标是用 fetch 读 data:image/svg+xml 再内联的。 -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: file:; font-src 'self'; connect-src 'self' data:">
+<title>ds-pet 设置</title>
+<link rel="stylesheet" href="./vendor/shoelace/themes/light.css">
+<!-- 深色主题：Shoelace 的 dark.css 用 .sl-theme-dark 作用域，不会自动生效，
+     由标题栏按钮给 <html> 加类来切换（选择记在 localStorage） -->
+<link rel="stylesheet" href="./vendor/shoelace/themes/dark.css">
+<link rel="stylesheet" href="./settings.css">
+<script type="module" src="./settings.js"></script>
+</head>
+<body>
+<!-- 自绘标题栏（窗口 frame:false）：左半区可拖动，右侧是最小化/关闭 -->
+<div class="titlebar">
+  <div class="titlebar-drag">
+    <img class="titlebar-logo" src="../../assets/logo.png" alt="" aria-hidden="true">
+    <span class="titlebar-name">ds-pet</span>
+  </div>
+  <div class="titlebar-actions">
+    <button type="button" id="theme-btn" class="win-btn" title="切换深浅色" aria-label="切换深浅色">
+      <span class="ico-moon" aria-hidden="true"></span>
+      <span class="ico-sun" aria-hidden="true"></span>
+    </button>
+    <button type="button" id="win-min" class="win-btn" title="最小化" aria-label="最小化">
+      <span class="ico-min" aria-hidden="true"></span>
+    </button>
+    <button type="button" id="win-close" class="win-btn danger" title="关闭" aria-label="关闭">
+      <span class="ico-close" aria-hidden="true"></span>
+    </button>
+  </div>
+</div>
+
+<div class="shell">
+  <header class="page-head">
+    <h1 id="page-title">桌宠设置</h1>
+    <!-- 配置 / API / 日志三条路径：点一下在资源管理器里定位（颜色跟随主题，不用蓝色链接） -->
+    <div class="meta" id="paths"></div>
+  </header>
+
+  <!-- 页签自己画（不用 sl-tab-group）：间距、指示条宽度、滑动动画全部可直接控制，
+       不会再出现「线跟文字对不上」——线的位置由本页 JS 按页签实际矩形算。 -->
+  <div class="tabs">
+    <div class="tab-bar" role="tablist">
+      <button type="button" class="tab active" role="tab" data-panel="pet" aria-selected="true">桌宠</button>
+      <button type="button" class="tab" role="tab" data-panel="ai" aria-selected="false">AI</button>
+      <button type="button" class="tab" role="tab" data-panel="festival" aria-selected="false">节日</button>
+      <span class="tab-indicator" aria-hidden="true"></span>
+    </div>
+
+    <!-- is-loading：数据到位前先藏着内容区（否则首帧会闪一屏空卡片/空下拉，几十毫秒后才填上） -->
+    <div class="tabs-body is-loading" id="tabsBody">
+      <!-- ================= 桌宠 ================= -->
+      <section class="tab-panel" data-panel="pet">
+      <div class="stack">
+        <sl-card class="card">
+          <div slot="header" class="card-head">
+            <span>宠物</span>
+            <sl-button size="small" id="add">
+              <sl-icon slot="prefix" name="plus-lg"></sl-icon>添加宠物
+            </sl-button>
+          </div>
+          <div id="pets" class="pets"></div>
+          <div id="entries" class="entries"></div>
+        </sl-card>
+
+        <sl-card class="card">
+          <div slot="header" class="card-head"><span>全局选项</span></div>
+          <div class="switch-grid">
+            <sl-switch id="trayEnabled" size="small">显示系统托盘图标</sl-switch>
+            <sl-switch id="clickSoundEnabled" size="small">点击音效</sl-switch>
+            <sl-switch id="confineToScreen" size="small">锁定在当前屏幕</sl-switch>
+            <sl-switch id="whisperImageEnabled" size="small">碎碎念配图</sl-switch>
+            <sl-switch id="chatImageEnabled" size="small">对话配图</sl-switch>
+            <sl-switch id="idleOnly" size="small">仅保持待机动画</sl-switch>
+            <!-- 开关 + 右侧「试一下」：作为网格的一格整体流动，窄窗时按钮自动换到下一行 -->
+            <div class="switch-with-action">
+              <sl-switch id="watchDsh" size="small">监测 DSH 进度</sl-switch>
+              <sl-button size="small" id="watch-dsh-test">试一下</sl-button>
+            </div>
+          </div>
+        </sl-card>
+
+        <sl-card class="card">
+          <div slot="header" class="card-head"><span>和它互动</span></div>
+          <div class="toolbar">
+            <sl-select id="target" size="small" hoist class="target-select" placeholder="选择宠物"></sl-select>
+            <sl-button size="small" id="whisper">说一句</sl-button>
+            <sl-button size="small" id="balance">查看余额</sl-button>
+          </div>
+          <div class="toolbar">
+            <sl-input id="chatText" size="small" placeholder="说点什么，回车发送…" maxlength="2000" autocomplete="off" class="chat-input"></sl-input>
+            <sl-button size="small" variant="primary" id="chat">对话</sl-button>
+          </div>
+          <!-- 互动结果：直接一行（多行）文字，不再套一个高框 -->
+          <p class="hint result-line" id="reply" role="status" aria-live="polite" hidden></p>
+        </sl-card>
+
+        <div class="actions">
+          <sl-button id="reload">
+            <sl-icon slot="prefix" name="arrow-clockwise"></sl-icon>重载配置
+          </sl-button>
+          <sl-button id="reset">恢复默认</sl-button>
+          <sl-button variant="primary" id="save" class="js-save-pet">
+            <sl-icon slot="prefix" name="check2"></sl-icon>保存并应用
+          </sl-button>
+        </div>
+      </div>
+      </section>
+
+      <!-- ================= 节日 ================= -->
+      <section class="tab-panel" data-panel="festival" hidden>
+        <div class="stack">
+          <sl-card class="card">
+            <div slot="header" class="card-head">
+              <span>节日自动动画</span>
+              <sl-switch id="festivalsEnabled" size="small">启用</sl-switch>
+            </div>
+            <p class="hint">
+              农历节日按系统日历换算（闰月不误判），公历节日按日期匹配。当天宠物会自动冒泡并播动画；
+              动画只在<strong>它自己的动画池</strong>里按关键词匹配（春节找「收红包」、中秋找「赏月吃月饼」），
+              匹配不到就只弹气泡——不会凭空造动画名。文案留空则用默认那句。
+            </p>
+            <p class="hint">「仅保持待机动画」开启时，<strong>试播仍会播放动画</strong>（那个开关只限制自动播放，不拦手动试播）。</p>
+            <div id="festivals" class="festival-list"></div>
+          </sl-card>
+
+          <div class="actions">
+            <sl-button variant="primary" id="save-festivals" class="js-save-pet">
+              <sl-icon slot="prefix" name="check2"></sl-icon>保存并应用
+            </sl-button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= AI ================= -->
+      <section class="tab-panel" data-panel="ai" hidden>
+      <div class="stack">
+        <sl-card class="card">
+          <div slot="header" class="card-head"><span>模型连接</span></div>
+          <div class="form-grid">
+            <sl-select id="protocol" size="small" label="接口协议" hoist>
+              <sl-option value="openai-compatible">OpenAI 兼容</sl-option>
+              <sl-option value="anthropic">Anthropic</sl-option>
+            </sl-select>
+            <!-- 模型不用手填：填好地址与密钥后点「检查」自动拉取列表 -->
+            <sl-select id="model" size="small" label="模型名称" placeholder="先点下面的「检查」获取" hoist>
+              <sl-option value="__custom__">自定义（手动填写）…</sl-option>
+            </sl-select>
+          </div>
+          <sl-input id="modelCustom" size="small" label="自定义模型名称" placeholder="例如 deepseek-chat" maxlength="200" spellcheck="false" hidden></sl-input>
+          <sl-input id="baseUrl" size="small" label="接口地址（Base URL）" placeholder="https://api.deepseek.com/v1" maxlength="2048" spellcheck="false" class="stacked"></sl-input>
+          <p class="hint">通常以 /v1 结尾。填 DeepSeek 官方地址时，「查看余额」会用同一把密钥查账户余额。</p>
+          <div class="key-row">
+            <sl-input id="apiKey" size="small" type="password" label="API 密钥" placeholder="留空保留已保存的密钥" maxlength="8192" password-toggle class="key-input"></sl-input>
+            <span class="key-state" id="key-state">尚未读取</span>
+          </div>
+          <p class="hint">密钥只写进本机配置，不回显、不经过网络服务。</p>
+          <div class="switch-grid tight">
+            <sl-switch id="clearApiKey" size="small">清除已保存的密钥并关闭 AI</sl-switch>
+            <sl-switch id="enabled" size="small">启用 AI 对话</sl-switch>
+          </div>
+          <div class="toolbar">
+            <sl-button size="small" id="test-btn">
+              <sl-icon slot="prefix" name="plug"></sl-icon>检查 / 获取模型
+            </sl-button>
+          </div>
+          <!-- 检查结果：按钮下方一行小字（不再是占一大块的高框） -->
+          <p class="hint result-line" id="test-result" role="status" aria-live="polite" hidden></p>
+          <p class="hint">填好接口地址与密钥后点「检查」：会自动取回该接口的模型列表并填进上面的下拉框，选一个再保存。</p>
+        </sl-card>
+
+        <sl-card class="card">
+          <div slot="header" class="card-head"><span>定时自动碎碎念</span></div>
+          <sl-switch id="automaticWhispers" size="small">开启自动碎碎念</sl-switch>
+          <p class="hint">开启后按间隔自动调用模型并在桌面上说话冒泡（产生 API 费用）。右键菜单里的手动对话与手动碎碎念不受此开关限制。</p>
+          <div class="form-grid stacked">
+            <sl-input id="whisperIntervalSec" size="small" type="number" label="碎碎念间隔（秒）" min="60" max="86400" step="1" value="300"></sl-input>
+            <sl-input id="maxTokens" size="small" type="number" label="单次输出上限（tokens）" min="128" max="4096" step="1" value="1024"></sl-input>
+          </div>
+        </sl-card>
+
+        <div class="actions">
+          <sl-button variant="primary" id="ai-save">
+            <sl-icon slot="prefix" name="check2"></sl-icon>保存 AI 设置
+          </sl-button>
+        </div>
+      </div>
+      </section>
+    </div>
+  </div>
+</div>
+
+<!-- 状态提示：不做底栏，改成左下角浮出的一句话（出现 2.6s 自动收起；错误留 6s） -->
+<p id="status" role="status" aria-live="polite"></p>
+
+<!-- 未保存提醒：改了任何一项就出现在左下角，带一次左右摇晃，点「保存」直接提交 -->
+<div id="dirty-hint" class="dirty-hint" role="status" aria-live="polite" hidden>
+  <sl-icon name="pencil-square" aria-hidden="true"></sl-icon>
+  <span>有未保存的修改</span>
+  <sl-button size="small" variant="primary" class="js-save-pet">保存</sl-button>
+</div>
+
+<!-- 确认对话框（替代浏览器原生 confirm：Electron 里那是系统模态，丑且打断） -->
+<sl-dialog id="dlg-confirm" label="确认">
+  <p id="dlg-message"></p>
+  <sl-button slot="footer" size="small" id="dlg-cancel">取消</sl-button>
+  <sl-button slot="footer" size="small" variant="primary" id="dlg-ok">确定</sl-button>
+</sl-dialog>
+
+<!-- 添加宠物（替代浏览器原生 prompt） -->
+<sl-dialog id="dlg-pet" label="添加宠物">
+  <sl-input id="dlg-pet-name" size="small" label="名字" placeholder="可留空，默认按 id" maxlength="40"></sl-input>
+  <sl-button slot="footer" size="small" id="dlg-pet-cancel">取消</sl-button>
+  <sl-button slot="footer" size="small" variant="primary" id="dlg-pet-ok">添加</sl-button>
+</sl-dialog>
+</body>
+</html>

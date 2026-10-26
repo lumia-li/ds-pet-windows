@@ -1,0 +1,386 @@
+// 余额气泡（client 半侧）：展示当前服务商余额/用量。哑组件——数据由上层传入，
+// 自身不发起请求；工厂形态与 pet.ts 一致（react 由 DSH 运行时注入）。
+// 内容（文案/档位/数学）来自 src/shared/balance.ts 的 balanceBubbleView ——
+// 与桌面模式共用同一份行数据，本文件只负责把行数据映射成 React 节点。
+import {
+  balanceBubbleView,
+  balanceDetailView,
+  customClickable,
+  customViews,
+  tierCountdownLabel,
+  type BalanceBubbleRow,
+  type BalanceState,
+  type CustomNode,
+} from '../shared/balance';
+import {
+  MEME_BUBBLE_CLASS,
+  MEME_IMG_CLASS,
+  injectMemeBubbleCss,
+  memeImageUrl,
+  whisperBubbleView,
+} from '../shared/whisper';
+import type { Dispatch, ReactNode, SetStateAction } from 'react';
+import type * as ReactNS from 'react';
+import type { jsx } from 'react/jsx-runtime';
+
+/** 气泡内联样式：白色半透明圆润泡 + 底部小尾巴指向宠物；字体用上首软糖体（本地打包，稳定）。
+ * 尺寸分两类锚点：
+ *  - 气泡**盒子**（宽上下限/内边距/圆角/尾巴/阴影/行间距/角标）锚在字号 `--f` 上（em 语义）：
+ *    字号调大盒子同步变大，文字永远装得下——不再出现「字长大了、框没长」把文字顶出白底；
+ *  - 气泡**位置**（bottom 偏移）仍锚在 `--dsh-pet-size`，保证气泡始终贴在宠物头顶同一点。
+ * 系数 = 原系数 ÷ 0.0455（原字号系数），故默认 462px 宠物 / 21px 字号下与改造前逐像素一致：
+ * ×0.0455 → 1em、最小宽 0.26 → 5.7143、最大宽 0.5 → 10.989 等。
+ * 字号：正文取 --dsh-pet-font-bubble（两端按该宠物尺寸算好注入，见 shared/fonts.ts 的 resolveFontPx）；
+ * 气泡内其余层级按「相对正文的比例」派生——故统一先定义局部变量 --f = 正文最终字号，
+ * 子元素经自定义属性继承取用；变量未注入时 --f 回退到原表达式，行为与改造前逐像素一致。
+ * 换行：正文不锁 nowrap，折行只在内容真的超过宽度上限时才发生（见下一条）。
+ * 宽度为什么必须写 width:max-content：气泡是 left:50% 的绝对定位盒，它的「可用宽度」只有包含块的一半
+ * （= 宠物宽度的一半），shrink-to-fit 会先被这道墙卡死——max-width 调多大都不生效，字号一大就折行/顶出。
+ * 写 width:max-content 后盒子先按内容取宽，再由 max-width 收口（= min(字号口径上限, 包含块 100%)），
+ * 「字变大 → 框变宽」才真正生效，且永不超过宠物本身宽度（桌面窗口只比宠物大一圈，超了会被裁）。
+ * 断词用 break-word 而非 anywhere：只在整词放不下时才断，不会把 85% / ¥12.34 这类数字拆到两行。 */
+const bubbleCss = [
+  // 本地字体：/dsh-pet-7340/font/ 由 host 从 assets/fonts 提供；font-display swap 先回退后切换
+  // unicode-range 把波浪号（U+007E ~ / U+FF5E ～）排除在软糖体之外：该字体把这两个字形
+  // 画成一条短横，看起来像"没显示出来"；排除后它们回退到字体栈里的系统字体。
+  '@font-face{font-family:"ShangshouSoftCandy";src:url("/dsh-pet-7340/font/上首软糖体.ttf") format("truetype");font-display:swap;font-weight:400;unicode-range:U+0-7D,U+7F-FF5D,U+FF5F-10FFFF}',
+  '.dsh-pet-bubble{position:absolute;left:50%;transform:translateX(-50%);' +
+    'bottom:calc(100% - var(--dsh-pet-size)*0.108);' +
+    'width:max-content;min-width:calc(var(--f)*5.7143);max-width:min(calc(var(--f)*16),100%);' +
+    // 钉死 content-box：宿主页面可能全局设了 border-box，那会让 min/max-width 把内边距也算进去，
+    // 内容可用宽度被悄悄缩掉一圈（表现为「明明还有空位却折行」）。桌面端 index.html 同样钉死，两端一致。
+    'box-sizing:content-box;' +
+    'padding:calc(var(--f)*0.4835) calc(var(--f)*0.6593);' +
+    'border-radius:calc(var(--f)*0.7692);' +
+    'background:rgba(255,255,255,.92);' +
+    '--f0:var(--dsh-pet-font-bubble,calc(var(--dsh-pet-size)*0.0455));--f:var(--f0);' +
+    // 回退栈不含 YouYuan/幼圆：它们把全角波浪号（～）画成短横线（与 shared/fonts.ts 同一口径）
+    'color:#2b2b2b;font-family:var(--dsh-pet-font-family,"ShangshouSoftCandy","Yuanti SC","Comic Sans MS","PingFang SC","Microsoft YaHei",sans-serif);' +
+    'font-size:var(--f);line-height:1.6;z-index:3;pointer-events:none;' +
+    'box-shadow:0 calc(var(--f)*0.1978) calc(var(--f)*0.7692) rgba(0,0,0,.14),0 1px 3px rgba(0,0,0,.08);' +
+    'backdrop-filter:blur(6px);opacity:0;transition:opacity .25s ease;' +
+    'white-space:normal;overflow-wrap:break-word}',
+  // 底部尾巴：小三角指向下方宠物（尺寸锚字号，与盒子同步）
+  '.dsh-pet-bubble::after{content:"";position:absolute;left:50%;bottom:calc(var(--f)*-0.3736);' +
+    'transform:translateX(-50%);border:calc(var(--f)*0.3736) solid transparent;' +
+    'border-top-color:rgba(255,255,255,.92);border-bottom:none}',
+  '.dsh-pet-bubble.is-on{opacity:1}',
+  // 碎碎念变体：字号缩到余额气泡的 0.75（0.0455→0.034，即 ×0.7473）、宽度下限更窄（0.10 → 2.1978），
+  // 上限与余额气泡相同；宽度取宽/折行的规则同 .dsh-pet-bubble（继承 width:max-content）
+  '.dsh-pet-bubble.dsh-pet-whisper{font-size:calc(var(--f)*0.7473);' +
+    'min-width:calc(var(--f)*2.1978);max-width:min(calc(var(--f)*10.989),100%)}',
+  // 配图（碎碎念/对话共用）：样式在 shared 的 MEME_BUBBLE_CSS（两端同一份，由
+  // createMemeImage 注入）——这里不再重复写一份，避免与桌面端 index.html 走样
+  '.dsh-pet-bubble .pet-bub-title{font-size:calc(var(--f)*0.7692);color:rgba(43,43,43,.6);margin-bottom:calc(var(--f)*0.1978)}',
+  '.dsh-pet-bubble .pet-bub-row{display:flex;justify-content:space-between;gap:calc(var(--f)*0.6593);flex-wrap:wrap}',
+  // 档位行只取消主行的 space-between（否则「谷」会被撑到中间），保留原有片段间距；
+  // 基线对齐：峰/谷外面套了竖排容器（字 + 倒计时），否则括号会上下错位
+  '.dsh-pet-bubble .pet-bub-tier-row{justify-content:flex-start;align-items:baseline}',
+  // 峰/谷竖排容器：上字下倒计时，水平居中；高度只往下长
+  '.dsh-pet-bubble .pet-bub-tier-wrap{display:inline-flex;flex-direction:column;align-items:center;vertical-align:baseline;line-height:1.1}',
+  // 倒计时：小字、灰但读得清、不换行（0.58f，默认字号下约 12px）
+  '.dsh-pet-bubble .pet-bub-tier-countdown{font-size:calc(var(--f)*0.58);line-height:1.2;font-weight:500;' +
+    'color:rgba(43,43,43,.72);white-space:nowrap;margin-top:2px;letter-spacing:.2px;font-variant-numeric:tabular-nums}',
+  // 档位行由多个片段拼成（「余额（」+「峰」+「）¥8.79/$2.40」）：只允许在片段之间换行，
+  // 片段内部不拆字（否则宽度不够时会出现一个字一行的竖排）
+  '.dsh-pet-bubble .pet-bub-row>span{white-space:nowrap}',
+  '.dsh-pet-bubble .pet-bub-sub{font-size:calc(var(--f)*0.7692);color:rgba(43,43,43,.6)}',
+  // 峰/谷下面的时段说明：与主行拉开一点，读起来是"注解"而不是第二行正文
+  '.dsh-pet-bubble .pet-bub-tier-note{margin-top:calc(var(--f)*0.2637);line-height:1.45}',
+  '.dsh-pet-bubble .pet-bub-val{font-variant-numeric:tabular-nums;font-weight:650;color:#1f1f1f}',
+  '.dsh-pet-bubble .pet-bub-err{color:#d94f3d;font-size:calc(var(--f)*0.7692)}',
+  '.dsh-pet-bubble .pet-bub-tag{margin-left:calc(var(--f)*0.2857);font-size:calc(var(--f)*0.4835);color:rgba(43,43,43,.55);border:1px solid rgba(43,43,43,.25);' +
+    'border-radius:calc(var(--f)*0.2857);padding:0 calc(var(--f)*0.1978);vertical-align:1px}',
+  // 峰/谷计价档位标注：峰红、谷绿
+  '.dsh-pet-bubble .pet-bub-tier{font-weight:700}',
+  '.dsh-pet-bubble .pet-bub-tier-peak{color:#e53935}',
+  '.dsh-pet-bubble .pet-bub-tier-idle{color:#2e9e4f}',
+  // ---- 展开态（点余额气泡后的完整额度）：每窗口一行，进度条长度 = 已用百分比 ----
+  // 可点：气泡默认 pointer-events:none（不挡宿主页面），只有这张可展开的余额气泡才开命中
+  '.dsh-pet-bubble.is-clickable{pointer-events:auto;cursor:pointer}',
+  // 收起态宽度上限 10.989em 排不下「窗口名 + 条 + 百分比 + 重置」四列，展开态单独给一档更宽的：
+  // 21em（60% 字号下 ≈265px），仍以包含块 100% 收口。
+  // 整体缩到收起字号的 60%：--f 是盒内所有尺寸的锚点（字号/内边距/圆角/进度条高度全都跟着它缩）。
+  '.dsh-pet-bubble.is-expanded{--f:calc(var(--f0)*0.6);width:min(calc(var(--f)*21),100%);max-width:100%}',
+  // 淡出：换内容前先降到透明（.25s，复用 opacity 那条过渡曲线），换完去掉这个类再淡入
+  '.dsh-pet-bubble.is-on.is-fading{opacity:0}',
+  '.dsh-pet-bubble .pet-bub-quota{display:flex;align-items:center;gap:calc(var(--f)*0.4);margin:calc(var(--f)*0.13) 0}',
+  '.dsh-pet-bubble .pet-bub-quota-label{flex:none;min-width:calc(var(--f)*1.9);font-size:calc(var(--f)*0.7692);color:rgba(43,43,43,.6)}',
+  '.dsh-pet-bubble .pet-bub-quota-bar{flex:1 1 auto;height:calc(var(--f)*0.5);border-radius:calc(var(--f)*0.25);background:rgba(43,43,43,.12);overflow:hidden}',
+  '.dsh-pet-bubble .pet-bub-quota-fill{display:block;height:100%;border-radius:inherit;background:#2e9e4f}',
+  '.dsh-pet-bubble .pet-bub-quota-fill.pet-bub-quota-warn{background:#e8952f}',
+  '.dsh-pet-bubble .pet-bub-quota-fill.pet-bub-quota-crit{background:#e53935}',
+  '.dsh-pet-bubble .pet-bub-quota-used{flex:none;min-width:calc(var(--f)*2.2);text-align:right;font-variant-numeric:tabular-nums;font-weight:650;color:#1f1f1f}',
+  '.dsh-pet-bubble .pet-bub-quota-reset{flex:none;min-width:calc(var(--f)*2.6);text-align:right;font-size:calc(var(--f)*0.7692);color:rgba(43,43,43,.6)}',
+].join('\n');
+
+/** 只注入一次 */
+function injectBubbleCss(): void {
+  if (typeof document !== 'undefined' && document.querySelector('style[data-plugin-css="dsh-pet/bubble"]') === null) {
+    const tag = document.createElement('style');
+    tag.dataset.plugin = 'dsh-pet';
+    tag.dataset.pluginCss = 'dsh-pet/bubble';
+    tag.textContent = bubbleCss;
+    document.head.appendChild(tag);
+  }
+}
+
+// ---------- 峰/谷倒计时（每秒刷新一次） ----------
+// 余额数据 30 分钟才刷新，而倒计时必须每秒跳，所以由展示层的定时器驱动；
+// 规则（下一档位时刻 + 跨周末/节假日的顺延）在 shared 的 tierCountdownLabel，两端同一份。
+let tierTicker: number | undefined;
+
+function updateTierCountdown(): void {
+  const nodes = document.querySelectorAll('.pet-bub-tier-countdown');
+  if (nodes.length === 0) return;
+  for (const node of nodes) {
+    const tier = node.getAttribute('data-tier') === 'peak' ? 'peak' : 'idle';
+    node.textContent = tierCountdownLabel(tier);
+  }
+}
+
+/** 首次渲染出档位小字时才启动定时器（幂等） */
+function ensureTierCountdownTicker(): void {
+  if (tierTicker !== undefined) return;
+  tierTicker = window.setInterval(updateTierCountdown, 1000);
+}
+
+/** 行数据 → React 节点（shared 视图的薄壳） */
+function rowsToNodes(h: typeof jsx, rows: BalanceBubbleRow[]): ReactNode {
+  // 含档位段（deepseek 余额单行）：同一行内联渲染，峰/谷着色；
+  // 档位下面那行时段说明（role:'sub'）另起一行，不塞进 flex 行里。
+  if (rows.some((r) => r.role === 'tier')) {
+    const inline = rows.filter((r) => r.role !== 'quota' && r.role !== 'sub');
+    const notes = rows.filter((r) => r.role === 'sub');
+    return h('div', {
+      children: [
+        h('div', {
+          key: 'line',
+          // tier-row：片段是连续文本，必须紧挨着（主行的 space-between 会把「谷」撑到中间）
+          className: 'pet-bub-row pet-bub-tier-row',
+          children: inline.map((r, i) => {
+            if (r.role === 'tier') {
+              // 峰/谷外面套竖排容器：上字 + 下面一行「距峰/距谷 HH:mm:ss」小字，
+              // 容器按基线对齐，括号与金额仍与「谷」在同一水平线上。
+              ensureTierCountdownTicker();
+              return h('span', {
+                key: i,
+                className: 'pet-bub-tier-wrap',
+                children: [
+                  h('span', { key: 'w', className: 'pet-bub-tier pet-bub-tier-' + r.tier, children: r.text }),
+                  h('span', {
+                    key: 'c',
+                    className: 'pet-bub-tier-countdown',
+                    'data-tier': r.tier,
+                    children: tierCountdownLabel(r.tier),
+                  }),
+                ],
+              });
+            }
+            return h('span', { key: i, children: r.text });
+          }),
+        }),
+        ...notes.map((r, i) =>
+          h('div', { key: 'note' + i, className: 'pet-bub-sub pet-bub-tier-note', children: r.text }),
+        ),
+      ],
+    });
+  }
+  // 其余：每行一个块（label 主行 / sub 次要行 / error 错误行 / quota 进度条行）
+  return rows.map((r, i) => {
+    // 展开态一行 = 一个窗口：窗口名 + 进度条 + 已用百分比 + 重置倒计时
+    // （四段都用 flex 同一行排，进度条吃剩余宽度，故条长 = 已用比例）
+    if (r.role === 'quota') {
+      return h('div', {
+        key: i,
+        className: 'pet-bub-quota',
+        children: [
+          h('span', { key: 'label', className: 'pet-bub-quota-label', children: r.label }),
+          h('span', {
+            key: 'bar',
+            className: 'pet-bub-quota-bar',
+            children: h('i', {
+              className: 'pet-bub-quota-fill pet-bub-quota-' + r.tone,
+              style: { width: Math.max(0, Math.min(100, r.percent)) + '%' },
+            }),
+          }),
+          h('span', { key: 'used', className: 'pet-bub-quota-used', children: r.usedText }),
+          h('span', { key: 'reset', className: 'pet-bub-quota-reset', children: r.resetText }),
+        ],
+      });
+    }
+    if (r.role === 'error') return h('div', { key: i, className: 'pet-bub-err', children: r.text });
+    if (r.role === 'sub') return h('div', { key: i, className: 'pet-bub-row pet-bub-sub', children: r.text });
+    return h('div', { key: i, className: 'pet-bub-row', children: r.text });
+  });
+}
+
+/** 自定义节点树 → React 节点（custom 形态的渲染器，与 rowsToNodes 并列）。
+ *
+ * 与 rowsToNodes 的分工：行数据是**插件定好**的排版（role → class），这里把**第三方定好**的
+ * tag/内联样式/文本原样映射成 JSX。没有 `innerHTML`、没有 HTML 字符串，所以不存在注入面；
+ * tag 与样式白名单在 shared 的解析层（parse.ts）已经裁过，到这里的树是可信输入，渲染器不做二次校验。
+ *
+ * 文本与子节点可同时存在：先文本、后子节点（与 DOM 的 textContent + appendChild 顺序一致），
+ * 这样第三方写「<span>余额 </span><span>8.16</span>」这类混排不需要额外的 text 节点语法。
+ */
+function treeToNodes(h: typeof jsx, node: CustomNode, key: string | number): ReactNode {
+  const props: Record<string, unknown> = { key };
+  if (node.style) props.style = node.style;
+  if (node.tag === 'img') {
+    // 配图：地址只来自解析层的 http/https 白名单；alt 留空（内容由周围文本承担）
+    props.src = node.src ?? '';
+    props.alt = '';
+    return h('img', props);
+  }
+  const children: ReactNode[] = [];
+  if (node.text) children.push(node.text);
+  for (let i = 0; i < (node.children?.length ?? 0); i++) {
+    children.push(treeToNodes(h, node.children![i]!, i));
+  }
+  props.children = children;
+  return h(node.tag, props);
+}
+
+/** 展开/收起时换内容的等待时长（ms）：与 .dsh-pet-bubble 的 opacity 过渡同为 .25s，
+ *  淡出走完后才换内容，否则内容会在半透明时被替换 = 看得见的硬切 */
+const BALANCE_FADE_MS = 250;
+
+/**
+ * 制造余额气泡（工厂）。
+ * 工厂内注入样式一次（与 pet.ts 的 injectCss 同模式）；组件为哑组件，props = { state, on, index, onCycle }。
+ * 内容来自 src/shared 的 balanceBubbleView / balanceDetailView（与桌面模式完全一致）。
+ *
+ * 两种内容语言（按 state.shape 分）：
+ *  - 内置三形态：行数据。收起态两行，展开态（点气泡）三窗口各一行；
+ *  - custom：第三方节点树，`views` 里第 index 项。
+ * 切页（含内置的收/展）是淡出 → 换内容 → 淡入，不是硬切。显隐与 10s 计时仍归上层（pet.ts）管。
+ */
+export function makeBalanceBubble(rt: {
+  h: typeof jsx;
+  useState: <T>(init: T) => [T, Dispatch<SetStateAction<T>>];
+  // 用 React 命名空间类型而非 typeof（同 pet.ts：type-only import 的 hook 无法进入声明导出）
+  useEffect: (effect: ReactNS.EffectCallback, deps?: ReactNS.DependencyList) => void;
+}): (props: {
+  state: BalanceState;
+  on: boolean;
+  /** 目标页（0 = 初始页；内置 windows 形态下 0 = 收起、1 = 展开） */
+  index: number;
+  /** 点击气泡：上层据此切到下一页并重置 10s 计时器 */
+  onCycle: () => void;
+}) => ReactNode {
+  const { h, useState, useEffect } = rt;
+  injectBubbleCss();
+
+  return function BalanceBubble({
+    state,
+    on,
+    index,
+    onCycle,
+  }: {
+    state: BalanceState;
+    on: boolean;
+    index: number;
+    onCycle: () => void;
+  }) {
+    // 目标是 index，实际显示的是 shown —— 两者分开是为了留出「先淡出、再换内容」的那 250ms。
+    const [shown, setShown] = useState(0);
+    const [fading, setFading] = useState(false);
+    useEffect(() => {
+      if (index === shown) return;
+      setFading(true);
+      const timer = window.setTimeout(() => {
+        setShown(index);
+        setFading(false);
+      }, BALANCE_FADE_MS);
+      return () => window.clearTimeout(timer);
+    }, [index, shown]);
+
+    // 展示语言二选一：内置三种形态给「行数据」，custom 给「第三方节点树」（见 shared/balance/view.ts）。
+    // custom 的页索引越界（页数变少）时夹到最后一页，不显示上一轮的残页。
+    const isCustom = state.ok && state.shape === 'custom';
+    const views = isCustom ? customViews(state) : undefined;
+    const tree = views ? views[Math.min(shown, views.length - 1)] : undefined;
+    const rows = isCustom ? [] : shown > 0 ? balanceDetailView(state) : balanceBubbleView(state);
+    // 可点：windows 有三窗口读数可展开；custom 只有**多于 1 页**才可点（一页点开也没别的内容）。
+    // money（账户余额）/ points（积分）与不可用状态点开也没别的内容，保持不可点（气泡继续不挡页面）。
+    const clickable = state.ok && (state.shape === 'windows' || (isCustom && customClickable(state)));
+    // 不可用状态（不支持/缺凭证/抓取失败）是**多行文字说明**：套用碎碎念的换行变体
+    // （字号缩到 0.75、宽度下限更窄，多行说明更紧凑；折行现在已是气泡的通用行为）
+    const wrap = state.ok ? '' : ' dsh-pet-whisper';
+    return h('div', {
+      className:
+        'dsh-pet-bubble' +
+        wrap +
+        (on ? ' is-on' : '') +
+        (clickable ? ' is-clickable' : '') +
+        (shown > 0 ? ' is-expanded' : '') +
+        (fading ? ' is-fading' : ''),
+      // 就地吞掉：宠物本体（.dsh-pet-hit）的点击/拖拽不能被这次点击碰到
+      onClick: clickable
+        ? (e: ReactNS.MouseEvent<HTMLDivElement>) => {
+            e.stopPropagation();
+            onCycle();
+          }
+        : undefined,
+      children: tree ? treeToNodes(h, tree, 'tree') : rowsToNodes(h, rows),
+    });
+  };
+}
+
+/**
+ * 制造碎碎念气泡（工厂）。
+ * 与余额气泡共用同一套样式（dsh-pet-bubble）与行渲染（rowsToNodes）；
+ * 内容来自 src/shared 的 whisperBubbleView（与桌面模式完全一致）。
+ * image：配图名称（配置 memes 的键），有值则在文字上方渲染该表情包；
+ *        图片样式取自 shared 的 MEME_BUBBLE_CSS（两端同一份，这里只声明式建节点）。
+ * url：配图的另一种形态（第三方自带的完整地址），**与 image 二选一**（host 判定层保证），
+ *        有值就直接当 img.src 用、不再拼表情包路径（issue #122 第 1 条）。
+ * assetRoot：**只在 image 形态下有意义**——素材根（= 该宠物的条目 key），决定图片去哪个表情包
+ *        目录链取（种类独占 pet/<名>-memes/ → 用户目录 → 包内），与动画素材同一套归属语义。
+ */
+export function makeWhisperBubble(rt: {
+  h: typeof jsx;
+}): (props: { text: string; image?: string; url?: string; assetRoot?: string; on: boolean }) => ReactNode {
+  const { h } = rt;
+  injectBubbleCss();
+  injectMemeBubbleCss();
+
+  return function WhisperBubble({
+    text,
+    image,
+    url,
+    assetRoot,
+    on,
+  }: {
+    text: string;
+    image?: string;
+    url?: string;
+    assetRoot?: string;
+    on: boolean;
+  }) {
+    const rows = whisperBubbleView({ ok: true, text, ts: 0 });
+    const key = String(image ?? '').trim();
+    const href = String(url ?? '').trim();
+    // 配图两种形态二选一（host 判定层保证）：url = 第三方自带的完整地址，直接用；image = 该条目
+    // 表情包池内的名称，按素材根拼路径。判别位在字段名上，不靠 startsWith('http') 嗅探
+    // （名字恰好长得像地址时会判错）。
+    const src = href || (key ? memeImageUrl(key, '/dsh-pet-7340', assetRoot) : '');
+    return h('div', {
+      className: 'dsh-pet-bubble dsh-pet-whisper' + (src ? ' ' + MEME_BUBBLE_CLASS : '') + (on ? ' is-on' : ''),
+      children: src
+        ? [
+            h('img', {
+              key: 'img',
+              className: MEME_IMG_CLASS,
+              // 名称形态：基址是本页 origin 下的路由前缀（与上面 @font-face 同一个字面量）；
+              // url 形态：src 就是那个完整地址，与本页 origin 无关
+              src,
+              alt: key || href,
+            }),
+            rowsToNodes(h, rows),
+          ]
+        : rowsToNodes(h, rows),
+    });
+  };
+}

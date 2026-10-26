@@ -1,0 +1,30 @@
+# 依赖
+node_modules/
+
+# 构建产物（体积大、可重新生成）
+dsh-pet/lib/
+dsh-pet/dist-app/
+packaging/dist-installer/
+
+# 素材预览（64 MB 的 GIF，README 展示用，不进仓库）
+dsh-pet/assets/preview/
+video/
+
+# 安装程序打包过程中的临时图
+packaging/assets/*-preview.png
+
+# 系统 / 编辑器
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
+
+# 日志与临时脚本
+*.log
+logs.txt
+scripts/tmp-*
+scripts/*.tmp
+
+# 原项目的 CI 配置（引用原仓库的 secrets，在本仓库跑不通；需要时再恢复）
+.github/workflows/

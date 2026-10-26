@@ -1,0 +1,812 @@
+/*
+ * 设置窗口与主题 —— 组件库：Shoelace（Web Components，MIT，本地 vendor/shoelace）。
+ *
+ * 分工：
+ *   · 组件（输入框/开关/下拉/页签/卡片/提示/对话框）全部来自 Shoelace，行为与无障碍由它负责；
+ *   · 本文件只做三件事：① 把 Shoelace 的设计变量换成插件的深海蓝配色；
+ *     ② 窗口骨架（frame:false 的自绘标题栏、固定底栏、内容滚动区）；
+ *     ③ 少量布局网格。业务样式一律不碰组件内部（要改就改 part 或变量）。
+ */
+:root {
+  color-scheme: light;
+
+  /* 品牌色：与插件其它界面同一份（#12618b） */
+  --sl-color-primary-50: #eff8fc;
+  --sl-color-primary-100: #d9eefa;
+  --sl-color-primary-200: #b6dff3;
+  --sl-color-primary-300: #7fc4e8;
+  --sl-color-primary-400: #48a6d3;
+  --sl-color-primary-500: #2481b3;
+  --sl-color-primary-600: #12618b;
+  --sl-color-primary-700: #0f5275;
+  --sl-color-primary-800: #0d4460;
+  --sl-color-primary-900: #0b3850;
+  --sl-color-primary-950: #072334;
+
+  --sl-font-sans: "Microsoft YaHei UI", "PingFang SC", "Segoe UI", system-ui, sans-serif;
+  --sl-font-size-medium: 13.5px;
+  --sl-font-size-small: 12.5px;
+  --sl-border-radius-medium: 8px;
+  --sl-border-radius-large: 12px;
+
+  /* ----- 页面骨架的语义色（全部走变量：深色在下面 html.sl-theme-dark 里整体换一遍） ----- */
+  --ink: #1e3a4a;
+  --muted: #5b7280;
+  /* 强调色（页签激活 / 指示条 / 状态文字）：浅色用品牌蓝，深色换成中性白灰 */
+  --accent: #12618b;
+  --accent-hover: #0f5275;
+  --label: #2c4a5c;
+  --meta-ink: #8fa3af;
+  --line: #e2edf4;
+  --line-strong: #cbdce5;
+  --paper: #fff;
+  --panel-2: #fbfdfe;
+  --panel-2-end: #f7fbfd;
+  --chip-bg: #eef4f8;
+  --bg: #f4f9fc;
+  --hover: #e8f1f7;
+  --warn: #a13b30;
+  --danger-soft: #fdf1ef;
+  --ok: #1a7f37;
+  --scroll: #cde2ed;
+  --scroll-hover: #b3d4e5;
+  --float-bg: rgba(255, 255, 255, 0.82);
+  --float-border: rgba(203, 220, 229, 0.9);
+  --status-bg: rgba(255, 255, 255, 0.92);
+  --status-border: rgba(203, 220, 229, 0.85);
+  --status-error-bg: rgba(253, 241, 239, 0.95);
+  --status-error-border: rgba(217, 164, 157, 0.85);
+  --overlay: rgba(20, 40, 52, 0.3);
+  --shadow-1: 0 1px 2px rgba(30, 58, 74, 0.04);
+  --shadow-float: 0 6px 22px rgba(30, 58, 74, 0.14);
+  --shadow-float-hover: 0 10px 28px rgba(30, 58, 74, 0.2);
+  --switch-track: #cfdee8;
+
+  --sl-input-border-color: var(--line-strong);
+  --sl-input-background-color: var(--paper);
+  --sl-panel-background-color: var(--paper);
+  --sl-panel-border-color: var(--line);
+}
+
+/* ---------- 深色主题（冷调深灰，不是纯黑；强调色用低饱和蓝） ----------
+   Shoelace 的 dark.css 只管组件内部；页面骨架（标题栏/卡片/页签/悬浮条/状态条）的颜色
+   全部走上面那组语义变量，这里整体覆盖一次即可。<html> 上的 sl-theme-dark 类由标题栏按钮切换
+   （选择记在 localStorage，下次打开沿用）。 */
+html.sl-theme-dark {
+  color-scheme: dark;
+
+  /* 强调色：Windows 11 深色用**提亮**的蓝，而不是同一个蓝 */
+  --accent: #4cc2ff;
+  --accent-hover: #7dd3ff;
+  --sl-color-primary-600: #4cc2ff;
+  --sl-color-primary-700: #7dd3ff;
+  --sl-color-primary-400: #2f9fd0;
+
+  /* 文字：白 + 三级透明度（Fluent 的 Secondary / Tertiary） */
+  --ink: #ffffff;
+  --muted: rgba(255, 255, 255, 0.72);
+  --label: rgba(255, 255, 255, 0.86);
+  --meta-ink: rgba(255, 255, 255, 0.54);
+
+  /* 描边/分隔线：白色低透明度叠加，而不是实心灰 */
+  --line: rgba(255, 255, 255, 0.08);
+  --line-strong: rgba(255, 255, 255, 0.14);
+
+  /* 三层表面：Base #1c1c1e → Card #26262a → 弹层 rgba(44,44,44,.96) */
+  --paper: #26262a;
+  --panel-2: #2b2b30;
+  --panel-2-end: #27272b;
+  --chip-bg: rgba(255, 255, 255, 0.06);
+  --bg: #1c1c1e;
+  --hover: rgba(255, 255, 255, 0.06);
+
+  --warn: #ff99a4;
+  --danger-soft: rgba(255, 153, 164, 0.12);
+  --ok: #6ccb5f;
+  --scroll: rgba(255, 255, 255, 0.16);
+  --scroll-hover: rgba(255, 255, 255, 0.28);
+
+  --float-bg: rgba(44, 44, 44, 0.96);
+  --float-border: rgba(255, 255, 255, 0.08);
+  --status-bg: rgba(44, 44, 44, 0.96);
+  --status-border: rgba(255, 255, 255, 0.08);
+  --status-error-bg: rgba(68, 32, 34, 0.96);
+  --status-error-border: rgba(255, 153, 164, 0.35);
+  --overlay: rgba(0, 0, 0, 0.5);
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.35);
+  --shadow-float: 0 8px 24px rgba(0, 0, 0, 0.45);
+  --shadow-float-hover: 0 12px 30px rgba(0, 0, 0, 0.55);
+  --switch-track: rgba(255, 255, 255, 0.16);
+}
+
+/* 输入框底也走"白 6% 叠加"，与控件描边同一套口径 */
+html.sl-theme-dark {
+  --sl-input-background-color: rgba(255, 255, 255, 0.06);
+}
+
+/* 主按钮：亮蓝底 + **深色字**（Fluent 深色主题的标志性组合，对比度最高） */
+html.sl-theme-dark sl-button[variant='primary']::part(base) {
+  background: #4cc2ff;
+  border-color: #4cc2ff;
+  color: #08131a;
+  box-shadow: none;
+}
+
+html.sl-theme-dark sl-button[variant='primary']::part(base):hover {
+  background: #7dd3ff;
+  border-color: #7dd3ff;
+}
+
+* { box-sizing: border-box; }
+
+/* 首帧防闪（FOUC）：组件是 ES module 异步注册的，注册完成前 <sl-card>/<sl-dialog>/<sl-tab-panel>
+   只是一堆没样式的标签——对话框内容、两个页签面板会同时裸露出来。Shoelace 官方给的解法就是
+   把「还没定义出来的自定义元素」先藏起来：升级完成的瞬间自动恢复，无需 JS 参与。 */
+:not(:defined) { visibility: hidden; }
+
+/* Shoelace 组件默认 display 会盖掉原生 hidden（sl-alert 用 hidden 控制显隐） */
+[hidden] { display: none !important; }
+
+html, body { height: 100%; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font: 13.5px/1.6 var(--sl-font-sans);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  user-select: none;
+}
+
+sl-input, sl-textarea, sl-select, .reply, .meta { user-select: text; }
+
+/* ---------- 自绘标题栏 ---------- */
+.titlebar {
+  flex: 0 0 auto;
+  height: 34px;
+  display: flex;
+  align-items: stretch;
+  justify-content: space-between;
+  /* 与页面同底色、无分隔线：标题栏与页头连成一整块，不再是"窗中窗" */
+  background: transparent;
+}
+
+.titlebar-drag {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 14px;
+  -webkit-app-region: drag;
+}
+
+/* 标题栏左侧的宠物本体图标（包内 assets/logo.png，与窗口/任务栏图标同一张） */
+.titlebar-logo {
+  width: 17px;
+  height: 17px;
+  display: block;
+  object-fit: contain;
+  border-radius: 4px;
+}
+
+.titlebar-name { font-size: 12px; letter-spacing: 0.06em; color: var(--muted); }
+
+.titlebar-actions { display: flex; align-items: center; gap: 2px; padding-right: 6px; -webkit-app-region: no-drag; }
+
+.win-btn {
+  width: 34px;
+  height: 26px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+
+.win-btn:hover { background: var(--hover); color: var(--ink); }
+.win-btn.danger:hover { background: #e81123; color: #fff; }
+
+.ico-min { width: 11px; height: 1.5px; background: currentColor; border-radius: 1px; }
+
+/* 主题切换按钮：浅色时显示月亮（点亮变深），深色时显示太阳 */
+.ico-moon,
+.ico-sun {
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  display: block;
+  background: currentColor;
+}
+
+.ico-moon { box-shadow: inset -4px 1px 0 0 var(--bg); }
+.ico-sun { box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.14), 0 0 6px currentColor; }
+
+html:not(.sl-theme-dark) .ico-sun { display: none; }
+html.sl-theme-dark .ico-moon { display: none; }
+
+.ico-close { position: relative; width: 11px; height: 11px; }
+.ico-close::before, .ico-close::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 0;
+  width: 100%;
+  height: 1.5px;
+  background: currentColor;
+  border-radius: 1px;
+}
+.ico-close::before { transform: rotate(45deg); }
+.ico-close::after { transform: rotate(-45deg); }
+
+/* ---------- 骨架 ---------- */
+.shell {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.page-head {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 18px;
+  /* 标题往下挪一点：贴着自绘标题栏太紧会显得挤 */
+  /* 底部不留白：页签栏紧跟页头；顶部留白决定标题离标题栏的距离 */
+  padding: 34px 20px 0;
+  /* 与内容同宽居中：宽窗下标题才不会孤零零贴在窗口最左边 */
+  width: 100%;
+  max-width: 1080px;
+  margin: 0 auto;
+}
+
+h1 { margin: 0; font-size: 19px; line-height: 1.3; letter-spacing: -0.3px; font-weight: 700; }
+
+/* 配置/日志路径：右下角空白处，弱化的两行小字（原来占着整条底栏） */
+/* 页头右上角的路径：三条可点的文本（不是蓝色链接，用灰字 + 虚线下划线标示可点） */
+.meta {
+  margin: 0;
+  flex: 0 1 auto;
+  min-width: 0;
+  display: grid;
+  justify-items: end;
+  gap: 1px;
+  font-size: 10.5px;
+  line-height: 1.5;
+  color: var(--meta-ink);
+}
+
+.path-link {
+  appearance: none;
+  border: 0;
+  border-bottom: 1px dashed transparent;
+  background: transparent;
+  padding: 0;
+  margin: 0;
+  max-width: 100%;
+  font: inherit;
+  color: var(--meta-ink);
+  text-align: right;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+  user-select: text;
+}
+
+.path-link:hover {
+  color: var(--ink);
+  border-bottom-color: var(--line-strong);
+}
+
+.path-link:focus-visible {
+  outline: 1px solid var(--line-strong);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+
+/* ---------- 页签（自绘，不用 sl-tab-group） ----------
+   为什么不用组件：它的指示条是 nav 里独立的绝对定位元素、由脚本算位置，一旦页签改了
+   margin/padding 就会"线跟文字对不上"；而且线宽 = 页签整宽（含 padding），
+   文字短的时候线会明显长出一截。自己画之后，线宽/位置都按页签真实矩形来，
+   同时保留 left/width 过渡 → 切换时照旧滑动。 */
+.tabs {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.tab-bar {
+  flex: 0 0 auto;
+  position: relative;
+  display: flex;
+  gap: 30px;
+  width: 100%;
+  max-width: 1080px;
+  /* 整体往上抬 2px：页签栏贴紧页头（页头底部留白已收成 0），
+     再往上就会顶到右上方那三条路径 */
+  margin: -2px auto 0;
+  padding: 0 20px;
+  border-bottom: 1px solid var(--line);
+}
+
+.tab {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  padding: 8px 3px 6px;
+  font: 600 13.5px/1.45 var(--sl-font-sans);
+  color: var(--muted);
+  cursor: pointer;
+  transition: color 0.16s ease;
+}
+
+.tab:hover { color: var(--accent-hover); }
+.tab.active { color: var(--accent); }
+
+/* 滑动指示条：left/width 由 settings.js 按当前页签的实际矩形写入，
+   过渡只作用在这两个属性上，所以切换页签时是"滑过去"而不是瞬跳。 */
+.tab-indicator {
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  width: 0;
+  height: 2px;
+  border-radius: 2px 2px 0 0;
+  background: var(--accent);
+  pointer-events: none;
+  transition:
+    left 0.26s cubic-bezier(0.34, 1.2, 0.64, 1),
+    width 0.26s cubic-bezier(0.34, 1.2, 0.64, 1);
+}
+
+/* 首帧/窗口缩放时直接落位，不播动画 */
+.tab-indicator.instant { transition: none; }
+
+.tabs-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  /* 底部留白：给悬浮的操作按钮组让位，最后一张卡片不会被压在按钮下面 */
+  padding: 12px 20px 76px;
+}
+
+.tab-panel { display: block; }
+.tab-panel[hidden] { display: none !important; }
+
+/* 数据未就位：内容区整块先藏着（页头/页签保留，看起来是"正在加载"而不是"空界面"）。
+   用 visibility 而不是 opacity：没有过渡时间，数据一到就立刻可见，不会出现"淡入"的中间态。 */
+.tabs-body.is-loading { visibility: hidden; }
+
+/* ---------- 未保存提醒（左下角，出现时左右摇晃两下） ---------- */
+.dirty-hint {
+  position: fixed;
+  left: 20px;
+  bottom: 18px;
+  z-index: 31;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px 6px 12px;
+  border-radius: 10px;
+  background: var(--float-bg);
+  border: 1px solid var(--float-border);
+  box-shadow: var(--shadow-float);
+  backdrop-filter: blur(10px) saturate(1.06);
+  font-size: 12.5px;
+  color: var(--ink);
+  white-space: nowrap;
+}
+
+.dirty-hint[hidden] { display: none; }
+.dirty-hint sl-icon { color: var(--accent); font-size: 14px; }
+
+/* 状态提示让位：未保存提示占着左下角时，普通状态提示往上挪一格 */
+body[data-dirty='true'] #status { bottom: 62px; }
+
+/* 每 3.2s 摇一轮（前 ~1s 晃、后面静止），持续提醒但不会一直抖个不停 */
+@keyframes dsh-dirty-shake {
+  0%,
+  22% { transform: translateX(0); }
+  26% { transform: translateX(-10px); }
+  32% { transform: translateX(10px); }
+  38% { transform: translateX(-8px); }
+  44% { transform: translateX(8px); }
+  50% { transform: translateX(-4px); }
+  56%,
+  100% { transform: translateX(0); }
+}
+
+.dirty-hint.is-shaking { animation: dsh-dirty-shake 3.2s ease-in-out infinite; }
+
+.stack { display: grid; gap: 11px; max-width: 840px; margin: 0 auto; }
+
+/* ---------- 卡片 ---------- */
+.card::part(base) {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  box-shadow: var(--shadow-1);
+  background: var(--paper);
+}
+
+.card::part(header) {
+  padding: 13px 18px;
+  border-bottom: 1px solid var(--line);
+  background: linear-gradient(var(--panel-2), var(--panel-2-end));
+  border-radius: 14px 14px 0 0;
+}
+
+.card::part(body) { padding: 16px 18px; }
+
+.card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+/* 宠物卡片（JS 生成，仍是 sl-card 的自定义 class） */
+.pets { display: grid; gap: 12px; }
+
+.pet::part(base) {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  box-shadow: none;
+  background: linear-gradient(var(--panel-2), var(--panel-2-end));
+}
+
+.pet::part(header) { padding: 11px 15px; background: transparent; border-bottom: 1px solid var(--line); }
+.pet::part(body) { padding: 14px 15px; }
+
+.pet-head { display: flex; align-items: center; gap: 9px; }
+.pet-name { font-size: 14.5px; font-weight: 600; }
+.pet-head .del { margin-left: auto; }
+
+.grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px 14px; }
+.form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 14px; }
+.stacked { margin-top: 12px; }
+
+.switch-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px 20px; }
+/* 「开关 + 右侧小按钮」组合（如「监测 DSH 进度」+「试一下」）：
+   在 switch-grid 里占一格，按钮紧贴开关右边；空间不够时按钮自动折到下一行。 */
+.switch-with-action {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.switch-with-action sl-switch,
+.switch-with-action sl-button {
+  flex: 0 0 auto;
+}
+
+.switch-with-action sl-button::part(base) {
+  height: 24px;
+  padding: 0 9px;
+  font-size: 12px;
+}
+
+.switch-grid.tight { margin-top: 12px; }
+.switch-row { display: flex; flex-wrap: wrap; gap: 7px 20px; margin-top: 12px; }
+
+.card sl-textarea { margin-top: 12px; }
+
+.entries { margin-top: 10px; font-size: 12px; color: var(--muted); }
+.entries p { margin: 3px 0; }
+
+.hint { font-size: 11.8px; line-height: 1.6; color: var(--muted); margin: 6px 0 0; }
+
+.key-row { display: flex; align-items: flex-end; gap: 10px; margin-top: 12px; }
+.key-input { flex: 1 1 auto; }
+/* 密钥状态：一行小字（原来是绿色实心徽章，太抢眼）。
+   高度取 sl-input 小号的实际高度并用 flex 居中，才能和输入框里的文字对齐——
+   之前用 margin-bottom 估算，标签在上方时看着总是偏下。 */
+.key-state {
+  display: flex;
+  align-items: center;
+  height: var(--sl-input-height-small, 28px);
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.key-state[data-tone='ok'] { color: var(--ok); }
+.key-state[data-tone='warn'] { color: var(--warn); }
+
+.toolbar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 12px; }
+.toolbar:first-child { margin-top: 0; }
+.target-select { min-width: 190px; }
+.chat-input { flex: 1 1 260px; }
+
+/* ---------- 按钮 ---------- */
+/* 统一圆角/字重/过渡；主次靠 variant 区分（primary 实心 + 微投影，default 白底描边）。
+   只碰 part，不覆盖组件内部布局，Shoelace 的键盘焦点环与禁用态保持原样。 */
+sl-button::part(base) {
+  border-radius: 9px;
+  font-weight: 600;
+  font-size: 13px;
+  transition: background-color 0.14s ease, border-color 0.14s ease, box-shadow 0.14s ease;
+}
+
+sl-button::part(prefix) { margin-right: 6px; }
+
+sl-button:not([variant])::part(base),
+sl-button[variant='default']::part(base) {
+  background: var(--paper);
+  border-color: var(--line-strong);
+  color: var(--label);
+}
+
+sl-button:not([variant])::part(base):hover,
+sl-button[variant='default']::part(base):hover {
+  background: var(--hover);
+  border-color: var(--line-strong);
+  color: var(--accent-hover);
+}
+
+sl-button[variant='primary']::part(base) {
+  box-shadow: 0 2px 6px rgba(18, 97, 139, 0.18);
+}
+
+sl-button[variant='primary']::part(base):hover {
+  box-shadow: 0 4px 12px rgba(18, 97, 139, 0.26);
+}
+
+sl-button[variant='text']::part(base) { color: var(--warn); }
+sl-button[variant='text']::part(base):hover { background: var(--danger-soft); }
+
+/* 操作按钮组：悬浮在右下角（不占内容流，滚到哪都能点）。
+   压在正文上时若挡住字，会渐隐到 42% 让文字透出来——滚动中渐隐、停下 0.7s 恢复，
+   鼠标移到按钮上 / 键盘聚焦时立刻恢复不透明（不影响操作）。 */
+.actions {
+  position: fixed;
+  right: 20px;
+  bottom: 18px;
+  z-index: 20;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  padding: 7px 8px;
+  border: 1px solid var(--float-border);
+  border-radius: 14px;
+  background: var(--float-bg);
+  backdrop-filter: blur(10px) saturate(1.08);
+  box-shadow: var(--shadow-float);
+  transition: opacity 0.18s ease, box-shadow 0.18s ease;
+}
+
+/* 常态留一点透明度（压在正文上时字仍能透出来），滚动时进一步渐隐 */
+.actions { opacity: 0.88; }
+.actions.is-scrolling { opacity: 0.45; }
+
+.actions:hover,
+.actions:focus-within {
+  opacity: 1;
+  box-shadow: var(--shadow-float-hover);
+}
+
+/* 互动结果（说一句 / 对话 / 余额）与 AI 检查结果共用 .result-line 的排版：
+   一行（可多行）小字，不再套 sl-alert 那个高框。 */
+#reply { white-space: pre-wrap; word-break: break-word; }
+
+/* 检查结果：按钮下方一行小字（成功绿 / 失败红），不再占一块高框 */
+.result-line {
+  margin: 7px 0 0;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--muted);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.result-line[data-tone='ok'] { color: var(--ok); }
+.result-line[data-tone='error'] { color: var(--warn); }
+
+/* ---------- 节日列表 ---------- */
+.festival-list {
+  display: grid;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.festival {
+  display: grid;
+  grid-template-columns: 92px minmax(0, 1fr) 132px 40px 28px;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel-2);
+}
+
+.festival-name {
+  font-size: 12.5px;
+  color: var(--label);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.festival.is-off .festival-name { color: var(--muted); }
+
+/* 窄窗：一行放不下，改成"名称 + 开关"一行、输入框一行 */
+@media (max-width: 760px) {
+  .festival {
+    grid-template-columns: 1fr auto;
+    gap: 6px 8px;
+  }
+  .festival sl-input,
+  .festival sl-select { grid-column: 1 / -1; }
+}
+
+/* ---------- 状态提示（无底栏，左下角浮出一句话） ---------- */
+#status {
+  position: fixed;
+  left: 20px;
+  bottom: 18px;
+  z-index: 30;
+  margin: 0;
+  max-width: min(560px, calc(100vw - 360px));
+  padding: 7px 13px;
+  border-radius: 10px;
+  background: var(--status-bg);
+  border: 1px solid var(--status-border);
+  box-shadow: var(--shadow-float);
+  backdrop-filter: blur(8px);
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--accent);
+  opacity: 0;
+  transform: translateY(6px);
+  pointer-events: none;
+  transition: opacity 0.18s ease, transform 0.18s ease;
+}
+
+#status[data-show="true"] { opacity: 1; transform: translateY(0); }
+
+#status[data-error="true"] {
+  color: var(--warn);
+  background: var(--status-error-bg);
+  border-color: var(--status-error-border);
+}
+
+/* ---------- 开关（重绘 sl-switch：轨道、滑钮、过渡、按下反馈） ----------
+   组件只负责行为与无障碍，外观全部收在这几行里：
+     · 轨道：36×20 的全圆角胶囊，关闭态淡雾蓝、开启态主蓝，内描边让边缘更利落；
+     · 滑钮：16px 白色圆片 + 双层投影（落地感），位移与缩小都走同一条缓动；
+     · 交互：悬停加深描边、按下给一圈柔光、键盘聚焦沿用组件自带的 focus 环。 */
+sl-switch {
+  --width: 36px;
+  --height: 20px;
+  --thumb-size: 16px;
+  --track-color: var(--switch-track);
+  --track-color-active: var(--sl-color-primary-600);
+  --thumb-color: #fff;
+  --thumb-color-active: #fff;
+}
+
+sl-switch::part(control) {
+  border-radius: 999px;
+  box-shadow: inset 0 0 0 1px rgba(30, 58, 74, 0.08);
+  transition: background-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+sl-switch:hover::part(control) {
+  box-shadow: inset 0 0 0 1px rgba(30, 58, 74, 0.18);
+}
+
+sl-switch[checked]::part(control) {
+  box-shadow: inset 0 0 0 1px rgba(18, 97, 139, 0.42);
+}
+
+sl-switch::part(thumb) {
+  /* 位移用的是 CSS 独立的 `translate` 属性（组件内部），不是 `transform`——
+     过渡里必须写 translate，否则滑动会变成瞬跳（这正是之前"没有动画"的原因）。
+     缓动带一点回弹，滑到位时更有手感。 */
+  box-shadow: 0 1px 3px rgba(20, 40, 52, 0.28), 0 0 0 0.5px rgba(20, 40, 52, 0.06);
+  transition:
+    translate 0.26s cubic-bezier(0.34, 1.32, 0.64, 1),
+    box-shadow 0.2s ease,
+    background-color 0.2s ease;
+}
+
+sl-switch:active::part(thumb) {
+  box-shadow: 0 0 0 3px rgba(18, 97, 139, 0.14), 0 1px 3px rgba(20, 40, 52, 0.28);
+}
+
+/* 滑动途中给轨道一点"被推"的反馈：按下时整体轻微压暗，松手回弹 */
+sl-switch:active::part(control) {
+  box-shadow: inset 0 0 0 1px rgba(30, 58, 74, 0.22);
+}
+
+sl-switch::part(label) {
+  font-size: 13.5px;
+  color: var(--ink);
+  padding-inline-start: 8px;
+}
+
+/* ---------- 对话框 ---------- */
+sl-dialog::part(panel) { border-radius: 14px; }
+sl-dialog::part(title) { font-size: 15px; }
+sl-dialog p { margin: 0; font-size: 13.5px; color: var(--ink); }
+
+/* ---------- 滚动条 ---------- */
+.tabs-body::-webkit-scrollbar { width: 10px; }
+.tabs-body::-webkit-scrollbar-track { background: transparent; }
+.tabs-body::-webkit-scrollbar-thumb {
+  background: var(--scroll);
+  border: 3px solid var(--bg);
+  border-radius: 8px;
+}
+.tabs-body::-webkit-scrollbar-thumb:hover { background: var(--scroll-hover); }
+
+/* ---------- 响应式 ----------
+   窗口可缩放（640×460 起），分三档宽度 + 一档低高度：
+     ≥1200      宽松：内容加宽到 1040，多宠物并排两列
+     981–1199   标准：单列卡片、宠物表单三列
+     761–980    紧凑：宠物表单两列、内容取消居中限宽
+     ≤760       窄窗：全部单列，悬浮操作条贴边
+     高度 ≤620  低高度：压缩纵向留白（768p 笔记本上不至于只剩两行内容） */
+
+/* 紧凑：宠物表单两列，内容占满可用宽度 */
+@media (max-width: 980px) {
+  .stack { max-width: 100%; }
+  .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .actions { right: 20px; }
+}
+
+/* 窄窗：一切单列；密钥行可换行；操作条贴边 */
+@media (max-width: 760px) {
+  .grid,
+  .form-grid,
+  .switch-grid { grid-template-columns: 1fr; }
+  .key-row { flex-wrap: wrap; align-items: stretch; }
+  #key-state { margin-bottom: 0; }
+  .page-head { padding: 16px 16px 4px; gap: 10px; }
+  .meta { max-width: 56%; font-size: 10px; }
+  .tab-bar { padding: 0 16px; gap: 24px; }
+  .tabs-body { padding: 10px 16px 78px; }
+  .card::part(header) { padding: 11px 14px; }
+  .card::part(body) { padding: 13px 14px; }
+  .pet::part(body) { padding: 12px 13px; }
+  #status { left: 12px; bottom: 12px; max-width: calc(100vw - 260px); font-size: 12px; }
+  .actions { right: 12px; bottom: 12px; }
+}
+
+/* 宽松：内容加宽、多宠物并排两列（只有一只时不劈半张卡） */
+@media (min-width: 1200px) {
+  .stack { max-width: 1040px; }
+  .pets { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .pets > .pet:only-child { grid-column: 1 / -1; }
+  .actions { right: max(20px, calc((100vw - 1080px) / 2)); }
+}
+
+/* 标准档：悬浮操作条对齐内容右边缘（而不是窗口右边缘），宽窗下才不会飘在空白里 */
+@media (min-width: 981px) and (max-width: 1199px) {
+  .actions { right: max(20px, calc((100vw - 880px) / 2)); }
+}
+
+/* 低高度：页头、卡片、内容区一起收一收 */
+@media (max-height: 620px) {
+  .page-head { padding-top: 6px; }
+  .tabs-body { padding-top: 8px; }
+  .card::part(header) { padding-top: 10px; padding-bottom: 10px; }
+  .card::part(body) { padding-top: 12px; padding-bottom: 12px; }
+}
